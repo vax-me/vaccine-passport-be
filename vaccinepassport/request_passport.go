@@ -1,4 +1,4 @@
-package vaccine_passport_signing
+package vaccinepassport
 
 import (
 	"encoding/json"
@@ -11,14 +11,14 @@ import (
 
 type PassportRequest struct {
 	mgm.DefaultModel `bson:",inline"`
-	FirstName string `json:"first_name" bson:"first_name"`
-	LastName string `json:"last_name" bson:"last_name"`
-	PublicKey string `json:"public_key" bson:"public_key"`
+	FirstName        string `json:"first_name" bson:"first_name"`
+	LastName         string `json:"last_name" bson:"last_name"`
+	PublicKey        string `json:"public_key" bson:"public_key"`
 }
 
 type PassportRequestInput struct {
 	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
+	LastName  string `json:"last_name"`
 	PublicKey string `json:"public_key"`
 }
 
@@ -39,9 +39,9 @@ func validatePassportRequestInput(data PassportRequestInput) error {
 
 func convertRequestInput(data PassportRequestInput) *PassportRequest {
 	return &PassportRequest{
-		FirstName:    data.FirstName,
-		LastName:     data.LastName,
-		PublicKey:    data.PublicKey,
+		FirstName: data.FirstName,
+		LastName:  data.LastName,
+		PublicKey: data.PublicKey,
 	}
 }
 

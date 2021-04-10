@@ -1,4 +1,4 @@
-package vaccine_passport_signing
+package vaccinepassport
 
 import (
 	"encoding/json"

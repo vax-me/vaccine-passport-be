@@ -1,4 +1,4 @@
-package vaccine_passport_signing
+package vaccinepassport
 
 import (
 	"crypto"
@@ -62,12 +62,16 @@ func Serialize(data VaccineData) string {
 	return fmt.Sprintf("%s%s%s%s%s", data.FirstName, ReservedSpacerChar, data.LastName, ReservedSpacerChar, data.Type)
 }
 
-func GetPrivateKey() (*rsa.PrivateKey, error) {
+var privKey = (*rsa.PrivateKey)(nil)
+
+func getPrivateKey() (*rsa.PrivateKey, error) {
+	if privKey != nil {
+		return privKey, nil
+	}
 	privateKeyPath := os.Getenv("VaccinePassportPrivateKey")
 
 	key, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-
 		return nil, err
 	}
 
@@ -76,11 +80,12 @@ func GetPrivateKey() (*rsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	privKey = der
 	return der, err
 }
 
-func Sign(data VaccineData) (SignedVaccineData, error) {
-	privateKey, err := GetPrivateKey()
+func sign(data VaccineData) (SignedVaccineData, error) {
+	privateKey, err := getPrivateKey()
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +100,7 @@ func Sign(data VaccineData) (SignedVaccineData, error) {
 	return signedData, nil
 }
 
-func Encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineDataContainer, error) {
+func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineDataContainer, error) {
 	publicKeyInterface, err := x509.ParsePKIXPublicKey([]byte(key))
 	if err != nil {
 		return nil, err
@@ -144,14 +149,14 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := VaccineData{}
-	signed, err := Sign(data)
+	signed, err := sign(data)
 	if err != nil {
 		w.WriteHeader(500)
 		log.Error(err)
 		_, _ = fmt.Fprint(w, "Server failed to sign.")
 		return
 	}
-	encrypted, err := Encrypt(signed, passportRequest.PublicKey)
+	encrypted, err := encrypt(signed, passportRequest.PublicKey)
 	encrypted.SetID(passportRequest.GetID())
 	if err := mgm.Transaction(func(session mongo.Session, sc mongo.SessionContext) error {
 		if err := mgm.Coll(encrypted).Create(encrypted); err != nil {
