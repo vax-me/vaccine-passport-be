@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,6 +21,8 @@ import (
 	"strings"
 	"time"
 )
+
+// TODO: The methods in these files need doctor auth!
 
 type VaccineDataInput struct {
 	Id   string `json:"id"`
@@ -125,6 +128,25 @@ func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineD
 		return nil, err
 	}
 	return &EncryptedSignedVaccineDataContainer{Base64Data: base64.StdEncoding.EncodeToString(encryptedSignedDataJson)}, nil
+}
+
+func GetRequest(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	passportRequest := &PassportRequest{}
+	err := mgm.Coll(passportRequest).FindByID(id, passportRequest)
+	if err != nil {
+		log.Info(err)
+		w.WriteHeader(404)
+		_, _ = fmt.Fprint(w, "Could not find request with given id")
+		return
+	}
+	w.WriteHeader(200)
+	if err := json.NewEncoder(w).Encode(passportRequest); err != nil {
+		w.WriteHeader(500)
+		log.Errorf("Failed to write response data")
+		_, _ = fmt.Fprint(w, "Server failed to generate response.")
+		return
+	}
 }
 
 func SignVaccineData(w http.ResponseWriter, r *http.Request) {
