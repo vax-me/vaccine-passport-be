@@ -56,7 +56,7 @@ func RequestPassport(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, "Failed to read message")
 		return
 	}
-	if err := validatePassportRequestInput(payload); err != nil {
+	if err := validatePassportRequestInput(payload); err != nil { // TODO: Validate cert
 		w.WriteHeader(400)
 		_, _ = fmt.Fprint(w, err)
 		return

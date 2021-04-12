@@ -3,20 +3,21 @@ package vaccinepassport
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
 func RetrievePassport(w http.ResponseWriter, r *http.Request) {
-	var request IdObj
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	id := mux.Vars(r)["id"]
+	if err := ValidateId(id); err != nil {
 		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Failed to read message")
+		_, _ = fmt.Fprint(w, "Invalid id")
 		return
 	}
 	encryptedSignedVaccineDataContainer := &EncryptedSignedVaccineDataContainer{}
-	if err := mgm.Coll(encryptedSignedVaccineDataContainer).FindByID(request.Id, encryptedSignedVaccineDataContainer); err != nil {
+	if err := mgm.Coll(encryptedSignedVaccineDataContainer).FindByID(id, encryptedSignedVaccineDataContainer); err != nil {
 		// TODO: Improve error handling
 		log.Error(err)
 		w.WriteHeader(500)

@@ -2,6 +2,8 @@ package vaccinepassport
 
 import (
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
@@ -25,7 +27,6 @@ import (
 // TODO: The methods in these files need doctor auth!
 
 type VaccineDataInput struct {
-	Id   string `json:"id"`
 	Type string `json:"type"`
 }
 
@@ -42,21 +43,26 @@ type SignedVaccineData struct {
 }
 
 type EncryptedSignedVaccineDataContainer struct {
-	mgm.DefaultModel `json:"-" bson:",inline"`
-	Base64Data       string `json:"base_64_data" bson:"data"`
+	mgm.DefaultModel      `json:"-" bson:",inline"`
+	Base64EncryptedAESKey string `json:"base_64_encrypted_aes_key" bson:"encrypted_aes_key"`
+	Base64Data            string `json:"base_64_data" bson:"data"`
 }
 
 const ReservedSpacerChar = "⊕"
 
 func validateVaccineDataInput(data VaccineDataInput) error {
-	if matchString, err := regexp.MatchString("[0-9A-Fa-f]{24}", data.Id); err != nil || !matchString {
+	if strings.Contains(data.Type, ReservedSpacerChar) {
+		return fmt.Errorf("invalid character in use")
+	}
+	return nil
+}
+
+func ValidateId(id string) error {
+	if matchString, err := regexp.MatchString("[0-9A-Fa-f]{24}", id); err != nil || !matchString {
 		if err != nil {
 			log.Error(err)
 		}
 		return fmt.Errorf("invalid id")
-	}
-	if strings.Contains(data.Type, ReservedSpacerChar) {
-		return fmt.Errorf("invalid character in use")
 	}
 	return nil
 }
@@ -94,8 +100,8 @@ func sign(data VaccineData) (SignedVaccineData, error) {
 	}
 	signTime := time.Now()
 	encodedData := Serialize(data)
-	bodyHash, err := rsa.SignPKCS1v15(rand.Reader, privateKey,
-		crypto.SHA256, []byte(encodedData))
+	hashed := sha512.Sum512([]byte(encodedData))
+	bodyHash, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA512, hashed[:])
 	if err != nil {
 		return SignedVaccineData{}, err
 	}
@@ -103,8 +109,21 @@ func sign(data VaccineData) (SignedVaccineData, error) {
 	return signedData, nil
 }
 
+func randBytes(length int) ([]byte, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineDataContainer, error) {
-	publicKeyInterface, err := x509.ParsePKIXPublicKey([]byte(key))
+	pemBlock, _ := pem.Decode([]byte(key))
+	if pemBlock == nil {
+		return nil, fmt.Errorf("could not find PEM")
+	}
+	publicKeyInterface, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -117,21 +136,51 @@ func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineD
 		log.Error(err)
 		return nil, fmt.Errorf("internal conversion error")
 	}
-	encryptedSignedDataJson, err := rsa.EncryptOAEP(
+
+	aesKey, err := randBytes(32)
+	if err != nil {
+		return nil, err
+	}
+	aesCipher, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(aesCipher)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce, err := randBytes(gcm.NonceSize())
+	if err != nil {
+		return nil, err
+	}
+	c := gcm.Seal(nil, nonce, signedDataJson, nil)
+	encryptedSignedDataJson := append(nonce, c...)
+
+	encryptedAESKey, err := rsa.EncryptOAEP(
 		sha512.New(),
 		rand.Reader,
 		publicKey,
-		signedDataJson,
+		aesKey,
 		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &EncryptedSignedVaccineDataContainer{Base64Data: base64.StdEncoding.EncodeToString(encryptedSignedDataJson)}, nil
+	return &EncryptedSignedVaccineDataContainer{
+		Base64Data:            base64.StdEncoding.EncodeToString(encryptedSignedDataJson),
+		Base64EncryptedAESKey: base64.StdEncoding.EncodeToString(encryptedAESKey),
+	}, nil
 }
 
 func GetRequest(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if err := ValidateId(id); err != nil {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprint(w, "Invalid id")
+		return
+	}
 	passportRequest := &PassportRequest{}
 	err := mgm.Coll(passportRequest).FindByID(id, passportRequest)
 	if err != nil {
@@ -151,6 +200,12 @@ func GetRequest(w http.ResponseWriter, r *http.Request) {
 
 func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	var payload VaccineDataInput
+	id := mux.Vars(r)["id"]
+	if err := ValidateId(id); err != nil {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprint(w, "Invalid id")
+		return
+	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		w.WriteHeader(400)
 		_, _ = fmt.Fprint(w, "Failed to read message")
@@ -162,7 +217,7 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	passportRequest := &PassportRequest{}
-	err := mgm.Coll(passportRequest).FindByID(payload.Id, passportRequest)
+	err := mgm.Coll(passportRequest).FindByID(id, passportRequest)
 	if err != nil {
 		log.Info(err)
 		w.WriteHeader(404)
@@ -179,6 +234,12 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	encrypted, err := encrypt(signed, passportRequest.PublicKey)
+	if err != nil {
+		w.WriteHeader(500)
+		log.Error(err)
+		_, _ = fmt.Fprint(w, "Failed to encrypt result")
+		return
+	}
 	encrypted.SetID(passportRequest.GetID())
 	if err := mgm.Transaction(func(session mongo.Session, sc mongo.SessionContext) error {
 		if err := mgm.Coll(encrypted).Create(encrypted); err != nil {
