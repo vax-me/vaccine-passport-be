@@ -26,14 +26,17 @@ import (
 
 // TODO: The methods in these files need doctor auth!
 
-type VaccineDataInput struct {
-	Type string `json:"type"`
+type VaccineDose struct {
+	Type         string `json:"type"`
+	LotNo        string `json:"lot_no"`
+	Manufacturer string `json:"manufacturer"`
+	DoseNo       uint32 `json:"dose_no"`
 }
 
 type VaccineData struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Type      string `json:"type"`
+	FirstName string      `json:"first_name"`
+	LastName  string      `json:"last_name"`
+	Dose      VaccineDose `json:"dose"`
 }
 
 type SignedVaccineData struct {
@@ -50,8 +53,8 @@ type EncryptedSignedVaccineDataContainer struct {
 
 const ReservedSpacerChar = "⊕"
 
-func validateVaccineDataInput(data VaccineDataInput) error {
-	if strings.Contains(data.Type, ReservedSpacerChar) {
+func validateVaccineDataInput(data VaccineDose) error {
+	if strings.Contains(data.Type, ReservedSpacerChar) || strings.Contains(data.LotNo, ReservedSpacerChar) || strings.Contains(data.Manufacturer, ReservedSpacerChar) {
 		return fmt.Errorf("invalid character in use")
 	}
 	return nil
@@ -67,8 +70,12 @@ func ValidateId(id string) error {
 	return nil
 }
 
-func Serialize(data VaccineData) string {
-	return fmt.Sprintf("%s%s%s%s%s", data.FirstName, ReservedSpacerChar, data.LastName, ReservedSpacerChar, data.Type)
+func SerializeVaccineDose(vaccine VaccineDose) string {
+	return fmt.Sprintf("%s%s%s%s%s%s%d", vaccine.LotNo, ReservedSpacerChar, vaccine.Type, ReservedSpacerChar, vaccine.Manufacturer, ReservedSpacerChar, vaccine.DoseNo)
+}
+
+func SerializeVaccineData(data VaccineData) string {
+	return fmt.Sprintf("%s%s%s%s%s", data.FirstName, ReservedSpacerChar, data.LastName, ReservedSpacerChar, SerializeVaccineDose(data.Dose))
 }
 
 var privKey = (*rsa.PrivateKey)(nil)
@@ -99,7 +106,7 @@ func sign(data VaccineData) (SignedVaccineData, error) {
 		panic(err)
 	}
 	signTime := time.Now()
-	encodedData := Serialize(data)
+	encodedData := SerializeVaccineData(data)
 	hashed := sha512.Sum512([]byte(encodedData))
 	bodyHash, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA512, hashed[:])
 	if err != nil {
@@ -199,7 +206,7 @@ func GetRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func SignVaccineData(w http.ResponseWriter, r *http.Request) {
-	var payload VaccineDataInput
+	var payload VaccineDose
 	id := mux.Vars(r)["id"]
 	if err := ValidateId(id); err != nil {
 		w.WriteHeader(400)
@@ -225,7 +232,11 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := VaccineData{}
+	data := VaccineData{
+		FirstName: passportRequest.FirstName,
+		LastName:  passportRequest.LastName,
+		Dose:      payload,
+	}
 	signed, err := sign(data)
 	if err != nil {
 		w.WriteHeader(500)

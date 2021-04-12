@@ -18,9 +18,7 @@ func RetrievePassport(w http.ResponseWriter, r *http.Request) {
 	}
 	encryptedSignedVaccineDataContainer := &EncryptedSignedVaccineDataContainer{}
 	if err := mgm.Coll(encryptedSignedVaccineDataContainer).FindByID(id, encryptedSignedVaccineDataContainer); err != nil {
-		// TODO: Improve error handling
-		log.Error(err)
-		w.WriteHeader(500)
+		w.WriteHeader(404)
 		return
 	}
 	w.WriteHeader(200)
