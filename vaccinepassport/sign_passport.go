@@ -15,49 +15,41 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 	"time"
 )
 
 // TODO: The methods in these files need doctor auth!
 
 type VaccineDose struct {
-	Type         string `json:"type"`
-	LotNo        string `json:"lot_no"`
-	Manufacturer string `json:"manufacturer"`
-	DoseNo       uint32 `json:"dose_no"`
+	Type         string `json:"type" bson:"type"`
+	LotNo        string `json:"lot_no" bson:"lot_no"`
+	Manufacturer string `json:"manufacturer" bson:"manufacturer"`
+	DoseNo       uint32 `json:"dose_no" bson:"dose_no"`
 }
 
 type VaccineData struct {
-	FirstName string      `json:"first_name"`
-	LastName  string      `json:"last_name"`
-	Dose      VaccineDose `json:"dose"`
+	FirstName string      `json:"first_name" bson:"first_name"`
+	LastName  string      `json:"last_name" bson:"last_name"`
+	Dose      VaccineDose `json:"dose" bson:"dose"`
 }
 
 type SignedVaccineData struct {
-	EncodedData string
+	EncodedData string    `json:"encoded_data_base_64"`
 	TimeStamp   time.Time `json:"time_stamp"`
-	Signature   string    `json:"signature"`
+	Signature   string    `json:"signature_base_64"`
 }
 
 type EncryptedSignedVaccineDataContainer struct {
 	mgm.DefaultModel      `json:"-" bson:",inline"`
 	Base64EncryptedAESKey string `json:"base_64_encrypted_aes_key" bson:"encrypted_aes_key"`
 	Base64Data            string `json:"base_64_data" bson:"data"`
-}
-
-const ReservedSpacerChar = "⊕"
-
-func validateVaccineDataInput(data VaccineDose) error {
-	if strings.Contains(data.Type, ReservedSpacerChar) || strings.Contains(data.LotNo, ReservedSpacerChar) || strings.Contains(data.Manufacturer, ReservedSpacerChar) {
-		return fmt.Errorf("invalid character in use")
-	}
-	return nil
+	Base64Nonce           string `json:"base_64_nonce" bson:"nonce"`
 }
 
 func ValidateId(id string) error {
@@ -68,14 +60,6 @@ func ValidateId(id string) error {
 		return fmt.Errorf("invalid id")
 	}
 	return nil
-}
-
-func SerializeVaccineDose(vaccine VaccineDose) string {
-	return fmt.Sprintf("%s%s%s%s%s%s%d", vaccine.LotNo, ReservedSpacerChar, vaccine.Type, ReservedSpacerChar, vaccine.Manufacturer, ReservedSpacerChar, vaccine.DoseNo)
-}
-
-func SerializeVaccineData(data VaccineData) string {
-	return fmt.Sprintf("%s%s%s%s%s", data.FirstName, ReservedSpacerChar, data.LastName, ReservedSpacerChar, SerializeVaccineDose(data.Dose))
 }
 
 var privKey = (*rsa.PrivateKey)(nil)
@@ -103,16 +87,23 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 func sign(data VaccineData) (SignedVaccineData, error) {
 	privateKey, err := getPrivateKey()
 	if err != nil {
-		panic(err)
+		return SignedVaccineData{}, err
 	}
 	signTime := time.Now()
-	encodedData := SerializeVaccineData(data)
-	hashed := sha512.Sum512([]byte(encodedData))
+	_, encodedData, err := bson.MarshalValue(data)
+	if err != nil {
+		return SignedVaccineData{}, err
+	}
+	hashed := sha512.Sum512(encodedData)
 	bodyHash, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA512, hashed[:])
 	if err != nil {
 		return SignedVaccineData{}, err
 	}
-	signedData := SignedVaccineData{EncodedData: encodedData, TimeStamp: signTime, Signature: string(bodyHash)}
+	signedData := SignedVaccineData{
+		EncodedData: base64.StdEncoding.EncodeToString(encodedData),
+		TimeStamp:   signTime,
+		Signature:   base64.StdEncoding.EncodeToString(bodyHash),
+	}
 	return signedData, nil
 }
 
@@ -178,6 +169,7 @@ func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineD
 	return &EncryptedSignedVaccineDataContainer{
 		Base64Data:            base64.StdEncoding.EncodeToString(encryptedSignedDataJson),
 		Base64EncryptedAESKey: base64.StdEncoding.EncodeToString(encryptedAESKey),
+		Base64Nonce:           base64.StdEncoding.EncodeToString(nonce),
 	}, nil
 }
 
@@ -216,11 +208,6 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		w.WriteHeader(400)
 		_, _ = fmt.Fprint(w, "Failed to read message")
-		return
-	}
-	if err := validateVaccineDataInput(payload); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, err)
 		return
 	}
 	passportRequest := &PassportRequest{}

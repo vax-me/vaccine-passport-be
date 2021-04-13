@@ -6,7 +6,6 @@ import (
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strings"
 )
 
 type PassportRequest struct {
@@ -28,11 +27,6 @@ func validatePassportRequestInput(data PassportRequestInput) error {
 	}
 	if len(data.LastName) == 0 {
 		return fmt.Errorf("last name must not be empty")
-	}
-	reservedCharInAnyField := strings.Contains(data.LastName, ReservedSpacerChar) ||
-		strings.Contains(data.FirstName, ReservedSpacerChar)
-	if reservedCharInAnyField {
-		return fmt.Errorf("invalid character in use")
 	}
 	return nil
 }
