@@ -9,7 +9,7 @@ import (
 )
 
 type PassportRequest struct {
-	mgm.DefaultModel `bson:",inline"`
+	mgm.DefaultModel `json:"-" bson:",inline"`
 	FirstName        string `json:"first_name" bson:"first_name"`
 	LastName         string `json:"last_name" bson:"last_name"`
 	PublicKey        string `json:"public_key" bson:"public_key"`
@@ -64,7 +64,7 @@ func RequestPassport(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(200)
 	idObj := IdObj{
-		Id: request.ID.String(),
+		Id: request.ID.Hex(),
 	}
 	if err := json.NewEncoder(w).Encode(idObj); err != nil {
 		w.WriteHeader(500)
