@@ -1,6 +1,7 @@
 package main
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/doctors"
 	"adrianlehmann.io/vaccine-passport-signing/vaccinepassport"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -13,5 +14,7 @@ func main() {
 	r.HandleFunc("/req", vaccinepassport.RequestPassport).Methods(http.MethodPost)
 	r.HandleFunc("/ret/{id}", vaccinepassport.RetrievePassport).Methods(http.MethodGet)
 	r.HandleFunc("/sign/{id}", vaccinepassport.SignVaccineData).Methods(http.MethodPost)
+	r.HandleFunc("/invalidate_doc", doctors.InvalidateDoctor).Methods(http.MethodPost)
+	r.HandleFunc("/invalid", doctors.GetInvalidPassports).Methods(http.MethodGet)
 	http.ListenAndServe(":8010", r)
 }

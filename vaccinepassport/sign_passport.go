@@ -1,6 +1,7 @@
 package vaccinepassport
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/doctors"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -238,12 +239,16 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, "Failed to encrypt result")
 		return
 	}
+	doctorId := "1" //TODO
 	encrypted.SetID(passportRequest.GetID())
 	if err := mgm.Transaction(func(session mongo.Session, sc mongo.SessionContext) error {
 		if err := mgm.Coll(encrypted).Create(encrypted); err != nil {
 			return err
 		}
 		if err := mgm.Coll(passportRequest).Delete(passportRequest); err != nil {
+			return err
+		}
+		if err := doctors.AddPassportToDoctor(doctorId, id); err != nil {
 			return err
 		}
 		return session.CommitTransaction(sc)
