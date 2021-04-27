@@ -25,7 +25,19 @@ type InvalidPassport struct {
 }
 
 type InvalidationRequest struct {
-	DoctorId string `json:"doctor_id"`
+	mgm.DefaultModel `json:"-" bson:",inline"`
+	DoctorId         string `json:"doctor_id" bson:"doctor_id"`
+}
+
+func CreateIndices() error {
+	doctorIdAscIndexModel := mongo.IndexModel{
+		Keys: bson.M{
+			"doctor_id": 1, // index in ascending order
+		}, Options: nil,
+	}
+	_, err := mgm.Coll(&doctorPassportRelation{}).Indexes().CreateOne(mgm.Ctx(), doctorIdAscIndexModel)
+	_, err = mgm.Coll(&InvalidationRequest{}).Indexes().CreateOne(mgm.Ctx(), doctorIdAscIndexModel)
+	return err
 }
 
 func AddPassportToDoctor(DoctorId string, PassportId string) error {
@@ -39,11 +51,21 @@ func AddPassportToDoctor(DoctorId string, PassportId string) error {
 	return nil
 }
 
-func invalidateDoctor(request InvalidationRequest) error {
+func invalidateDoctor(request InvalidationRequest) (error, error) {
+	// Check if doctor already invalid to avoid db fill up
+	var prevInvalidReq []InvalidationRequest
+	if err := mgm.Coll(&InvalidationRequest{}).SimpleFind(&prevInvalidReq, bson.M{"doctor_id": bson.M{operator.Eq: request.DoctorId}}); err == nil {
+		if prevInvalidReq != nil && len(prevInvalidReq) > 0 {
+			return fmt.Errorf("doctor already invalidated"), nil
+		} else {
+			_ = mgm.Coll(&InvalidationRequest{}).Create(&request) // Ok if failed - this is just a resource drain avoidance
+		}
+	}
+
 	var result []doctorPassportRelation
 	if err := mgm.Coll(&doctorPassportRelation{}).
 		SimpleFind(&result, bson.M{"doctor_id": bson.M{operator.Eq: request.DoctorId}}); err != nil {
-		return err
+		return nil, err
 	}
 	now := time.Now()
 	if err := mgm.Transaction(func(session mongo.Session, sc mongo.SessionContext) error {
@@ -58,9 +80,9 @@ func invalidateDoctor(request InvalidationRequest) error {
 		}
 		return session.CommitTransaction(sc)
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func InvalidateDoctor(w http.ResponseWriter, r *http.Request) {
@@ -71,10 +93,14 @@ func InvalidateDoctor(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, "Failed to read message")
 		return
 	}
-	err := invalidateDoctor(req)
-	if err != nil {
+	userErr, serverErr := invalidateDoctor(req)
+	if serverErr != nil {
 		w.WriteHeader(500)
-		_, _ = fmt.Fprint(w, err)
+		_, _ = fmt.Fprint(w, serverErr)
+		return
+	} else if userErr != nil {
+		w.WriteHeader(400)
+		_, _ = fmt.Fprint(w, userErr)
 		return
 	}
 	w.WriteHeader(204)
