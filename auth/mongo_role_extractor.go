@@ -26,7 +26,7 @@ type UserRole struct { // struct public for mgm
 func (MongoRoleExtractor) Init() {
 	err := addIndices()
 	if err != nil {
-		log.Fatalf("could not create role indicies %v", err)
+		log.Errorf("could not create role indicies %v", err)
 	}
 }
 

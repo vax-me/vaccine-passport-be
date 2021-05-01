@@ -14,6 +14,6 @@ func Init() {
 		panic(err)
 	}
 	if err := doctors.CreateIndices(); err != nil {
-		log.Fatalf("failed to created indices %v", err)
+		log.Errorf("failed to created indices %v", err)
 	}
 }
