@@ -10,4 +10,5 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/urfave/negroni v1.0.0
 	go.mongodb.org/mongo-driver v1.5.1
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 )
