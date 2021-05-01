@@ -62,10 +62,6 @@ func addUserRole(role UserRole) error {
 }
 
 func AddUserRoleHandler(w http.ResponseWriter, r *http.Request) {
-	if !CheckRoleDefaultSuperUser(r) {
-		w.WriteHeader(403)
-		return
-	}
 	var role UserRole
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
 		w.WriteHeader(400)

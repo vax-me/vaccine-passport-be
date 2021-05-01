@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/form3tech-oss/jwt-go"
+	"github.com/urfave/negroni"
 	"net/http"
 	"strings"
 )
@@ -16,12 +18,26 @@ type RoleExtractor interface {
 const doctorRoleName = "doctor"
 const superUserRoleName = "su"
 
-var CheckRoleDefault = CheckRole(defaultRoleExtractor)
-var CheckRoleDefaultDoctor = CheckRoleDefault(doctorRoleName)
-var CheckRoleDefaultSuperUser = CheckRoleDefault(superUserRoleName)
+type RoleValidator = func(r *http.Request) bool
 
-func CheckRole(extractor RoleExtractor) func(role string) func(r *http.Request) bool {
-	return func(role string) func(r *http.Request) bool {
+var DefaultRoleValidator = ValidateRole(defaultRoleExtractor)
+var DefaultDoctorRoleValidator = DefaultRoleValidator(doctorRoleName)
+var DefaultSuperUserRoleValidator = DefaultRoleValidator(superUserRoleName)
+
+func AuthenticateCallAndCheckRole(handler http.HandlerFunc, validator RoleValidator) *negroni.Negroni {
+	validatedHandler := func(w http.ResponseWriter, r *http.Request) {
+		if !validator(r) {
+			w.WriteHeader(403)
+			_, _ = fmt.Fprint(w, "Forbidden.")
+			return
+		}
+		handler(w, r)
+	}
+	return AuthenticateCall(validatedHandler)
+}
+
+func ValidateRole(extractor RoleExtractor) func(role string) RoleValidator {
+	return func(role string) RoleValidator {
 		return func(r *http.Request) bool {
 			authHeaderParts := strings.Split(r.Header.Get("Authorization"), " ")
 			if len(authHeaderParts) < 2 {
