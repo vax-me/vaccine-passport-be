@@ -10,7 +10,7 @@ import (
 
 func Init() {
 	// Setup the mgm default config
-	if err := mgm.SetDefaultConfig(nil, "mgm_lab", options.Client().ApplyURI(os.Getenv("VaccinePassportMongoUrl"))); err != nil {
+	if err := mgm.SetDefaultConfig(nil, "vax_me", options.Client().ApplyURI(os.Getenv("VaccinePassportMongoUrl"))); err != nil {
 		panic(err)
 	}
 	if err := doctors.CreateIndices(); err != nil {

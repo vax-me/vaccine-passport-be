@@ -1,0 +1,41 @@
+version: '3.1'
+
+services:
+
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: pass
+    ports:
+      - 27017:27017
+    networks:
+      - default
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - target: 8081
+        published: 8085
+        protocol: tcp
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: pass
+    depends_on:
+      - mongo
+  vaccine-passport-be:
+    build: .
+    ports:
+      - 8010:8010
+    volumes:
+      - "./test-deploy:/data"
+    environment:
+      VaccinePassportPrivateKey: "/data/private.key"
+      VaccinePassportMongoUrl: "mongodb://root:pass@mongo:27017"
+      VaccinePassportAuthAud: "http://localhost:8010"
+      VaccinePassportSUEmail: "some.user@email.com"
+    depends_on:
+      - mongo
+    networks:
+      - default

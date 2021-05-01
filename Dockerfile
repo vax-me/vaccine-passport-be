@@ -8,11 +8,10 @@ ENV GO111MODULE=on
 RUN go get
 RUN go build
 
-ARG PRIVATE_KEY
-ARG MONGO_STR
-
-ENV VaccinePassportPrivateKey=${PRIVATE_KEY}
-ENV VaccinePassportMongoUrl=${MONGO_STR}
+ENV VaccinePassportPrivateKey=""
+ENV VaccinePassportMongoUrl=""
+ENV VaccinePassportAuthAud=""
+ENV VaccinePassportSUEmail=""
 
 EXPOSE 8010
-CMD ["vaccine-passport-signing"]
+ENTRYPOINT ["/app/vaccine-passport-signing"]
