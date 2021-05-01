@@ -37,33 +37,44 @@ func AuthenticateCall(handler http.HandlerFunc) *negroni.Negroni {
 
 var aud = os.Getenv("VaccinePassportAuthAud")
 
+func getEmail(token *jwt.Token) string {
+	return token.Claims.(jwt.MapClaims)["email"].(string)
+}
+
+func verifyParseToken(token *jwt.Token) (interface{}, error) {
+	// Verify 'aud' claim
+	checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, false)
+	if !checkAud {
+		return token, errors.New("invalid audience")
+	}
+	// Verify 'iss' claim
+	iss := "https://adrianleh.us.auth0.com/"
+	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(iss, false)
+	if !checkIss {
+		return token, errors.New("invalid issuer")
+	}
+
+	validErr := token.Claims.(jwt.MapClaims).Valid()
+	if validErr != nil {
+		return token, validErr
+	}
+
+	cert, err := getPemCert(token)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	result, _ := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
+	return result, nil
+}
+
 func GetJWTMiddleware() *jwtmiddleware.JWTMiddleware {
 	if jwtMiddleware != nil {
 		return jwtMiddleware
 	}
 	jwtMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			// Verify 'aud' claim
-			checkAud := token.Claims.(jwt.MapClaims).VerifyAudience(aud, false)
-			if !checkAud {
-				return token, errors.New("invalid audience")
-			}
-			// Verify 'iss' claim
-			iss := "https://adrianleh.us.auth0.com/"
-			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(iss, false)
-			if !checkIss {
-				return token, errors.New("invalid issuer")
-			}
-
-			cert, err := getPemCert(token)
-			if err != nil {
-				panic(err.Error())
-			}
-
-			result, _ := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
-			return result, nil
-		},
-		SigningMethod: jwt.SigningMethodRS256,
+		ValidationKeyGetter: verifyParseToken,
+		SigningMethod:       jwt.SigningMethodRS256,
 	})
 	return jwtMiddleware
 }
