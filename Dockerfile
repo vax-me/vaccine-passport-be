@@ -12,6 +12,7 @@ ENV VaccinePassportPrivateKey=""
 ENV VaccinePassportMongoUrl=""
 ENV VaccinePassportAuthAud=""
 ENV VaccinePassportSUEmail=""
+ENV VaccinePassportAuthIss=""
 
 EXPOSE 8010
 ENTRYPOINT ["/app/vaccine-passport-signing"]

@@ -11,6 +11,7 @@ import (
 
 func main() {
 	vaccinepassport.Init()
+	auth.Init()
 	auth.GetRoleExtractor().Init()
 	r := mux.NewRouter()
 	r.Handle("/req/{id}", auth.AuthenticateCallAndCheckRole(vaccinepassport.GetRequest, auth.DefaultDoctorRoleValidator)).Methods(http.MethodGet)

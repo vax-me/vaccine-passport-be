@@ -3,11 +3,13 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/urfave/negroni"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -36,7 +38,32 @@ func AuthenticateCall(handler http.HandlerFunc) *negroni.Negroni {
 		negroni.Wrap(handler))
 }
 
+func Init() {
+	err := validateEnvironment()
+	if err != nil {
+		panic(err)
+	}
+}
+
 var aud = os.Getenv("VaccinePassportAuthAud")
+var iss = os.Getenv("VaccinePassportAuthIss")
+
+const urlRegex = "https?:\\/\\/([A-Za-z0-9]+\\.)*[A-Za-z0-9]+(\\:[1-9][0-9]{0,4})?(\\/[a-zA-Z0-9]+)*\\/"
+
+func validateEnvironment() error {
+	regex, err := regexp.Compile(urlRegex)
+	if err != nil {
+		return err
+	}
+	errorFmtText := "%s not a valid url terminating in a slash \"/\""
+	if !regex.MatchString(aud) {
+		return fmt.Errorf(errorFmtText, "aud")
+	}
+	if !regex.MatchString(iss) {
+		return fmt.Errorf(errorFmtText, "iss")
+	}
+	return nil
+}
 
 func getTokenFromRequest(r *http.Request) (*jwt.Token, error) {
 	authHeaderParts := strings.Split(r.Header.Get("Authorization"), " ")
@@ -66,7 +93,6 @@ func verifyParseToken(token *jwt.Token) (interface{}, error) {
 		return token, errors.New("invalid audience")
 	}
 	// Verify 'iss' claim
-	iss := "https://adrianleh.us.auth0.com/"
 	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(iss, false)
 	if !checkIss {
 		return token, errors.New("invalid issuer")
@@ -99,7 +125,7 @@ func GetJWTMiddleware() *jwtmiddleware.JWTMiddleware {
 
 func getPemCert(token *jwt.Token) (string, error) {
 	cert := ""
-	resp, err := http.Get("https://adrianleh.us.auth0.com/.well-known/jwks.json")
+	resp, err := http.Get(fmt.Sprintf("%s.well-known/jwks.json", iss))
 
 	if err != nil {
 		return cert, err
