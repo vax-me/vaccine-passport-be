@@ -5,6 +5,7 @@ import (
 	"adrianlehmann.io/vaccine-passport-signing/doctors"
 	"adrianlehmann.io/vaccine-passport-signing/vaccinepassport"
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	r.Handle("/invalidate_doc", auth.AuthenticateCallAndCheckRole(doctors.InvalidateDoctor, auth.DefaultSuperUserRoleValidator)).Methods(http.MethodPost)
 	r.HandleFunc("/invalid", doctors.GetInvalidPassports).Methods(http.MethodGet)
 	r.Handle("/role", auth.AuthenticateCallAndCheckRole(auth.AddUserRoleHandler, auth.DefaultSuperUserRoleValidator)).Methods(http.MethodPost)
+	log.Info("Ready to accept requests")
 	err := http.ListenAndServe(":8010", r)
 	if err != nil {
 		panic(err)

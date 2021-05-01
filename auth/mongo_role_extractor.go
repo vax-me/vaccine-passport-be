@@ -16,10 +16,11 @@ import (
 type MongoRoleExtractor struct {
 }
 
-type UserRole struct {
-	mgm.DefaultModel `bson:",inline"`
-	email            string `bson:"email"`
-	role             string `bson:"role"`
+type UserRole struct { // struct public for mgm
+	mgm.DefaultModel `json:"-" bson:",inline"`
+	Email            string `json:"email" bson:"email"`
+	Role             string `json:"role" bson:"role"`
+	AssignedBy       string `json:"-" bson:"assigned_by"`
 }
 
 func (MongoRoleExtractor) Init() {
@@ -46,7 +47,7 @@ func (MongoRoleExtractor) HasRole(token *jwt.Token, role string) (bool, error) {
 }
 
 func roleExists(role UserRole) (bool, error) {
-	return hasRole(role.email, role.role)
+	return hasRole(role.Email, role.Role)
 }
 
 func hasRole(email string, role string) (bool, error) {
@@ -67,6 +68,15 @@ func AddUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		return
 	}
+
+	email, err := getRequestingEmail(r)
+	if err != nil {
+		w.WriteHeader(500)
+		_, _ = fmt.Fprint(w, "Anonymous request")
+		return
+	}
+	role.AssignedBy = email
+
 	if exists, err := roleExists(role); err != nil || exists {
 		w.WriteHeader(400)
 		_, _ = fmt.Fprint(w, "User already has role")

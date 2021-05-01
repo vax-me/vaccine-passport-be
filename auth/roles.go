@@ -5,7 +5,6 @@ import (
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/urfave/negroni"
 	"net/http"
-	"strings"
 )
 
 var defaultRoleExtractor = MongoEnvRoleExtractor{}
@@ -39,12 +38,10 @@ func AuthenticateCallAndCheckRole(handler http.HandlerFunc, validator RoleValida
 func ValidateRole(extractor RoleExtractor) func(role string) RoleValidator {
 	return func(role string) RoleValidator {
 		return func(r *http.Request) bool {
-			authHeaderParts := strings.Split(r.Header.Get("Authorization"), " ")
-			if len(authHeaderParts) < 2 {
+			token, err := getTokenFromRequest(r)
+			if err != nil {
 				return false
 			}
-			tokenRaw := authHeaderParts[1]
-			token, err := jwt.Parse(tokenRaw, verifyParseToken)
 			hasRole, err := extractor.HasRole(token, role)
 			return (err != nil) && hasRole
 		}

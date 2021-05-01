@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/negroni"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type Response struct {
@@ -36,6 +37,23 @@ func AuthenticateCall(handler http.HandlerFunc) *negroni.Negroni {
 }
 
 var aud = os.Getenv("VaccinePassportAuthAud")
+
+func getTokenFromRequest(r *http.Request) (*jwt.Token, error) {
+	authHeaderParts := strings.Split(r.Header.Get("Authorization"), " ")
+	if len(authHeaderParts) < 2 {
+		return nil, nil
+	}
+	tokenRaw := authHeaderParts[1]
+	return jwt.Parse(tokenRaw, verifyParseToken)
+}
+
+func getRequestingEmail(r *http.Request) (string, error) {
+	token, err := getTokenFromRequest(r)
+	if err != nil {
+		return "", err
+	}
+	return getEmail(token), nil
+}
 
 func getEmail(token *jwt.Token) string {
 	return token.Claims.(jwt.MapClaims)["email"].(string)
