@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	auth.GetRoleExtractor().Init()
 	vaccinepassport.Init()
+	auth.GetRoleExtractor().Init()
 	r := mux.NewRouter()
 	r.Handle("/req/{id}", auth.AuthenticateCall(vaccinepassport.GetRequest)).Methods(http.MethodGet)
 	r.HandleFunc("/req", vaccinepassport.RequestPassport).Methods(http.MethodPost)
@@ -19,5 +19,8 @@ func main() {
 	r.Handle("/invalidate_doc", auth.AuthenticateCall(doctors.InvalidateDoctor)).Methods(http.MethodPost)
 	r.HandleFunc("/invalid", doctors.GetInvalidPassports).Methods(http.MethodGet)
 	r.Handle("/role", auth.AuthenticateCall(auth.AddUserRoleHandler)).Methods(http.MethodPost)
-	http.ListenAndServe(":8010", r)
+	err := http.ListenAndServe(":8010", r)
+	if err != nil {
+		panic(err)
+	}
 }

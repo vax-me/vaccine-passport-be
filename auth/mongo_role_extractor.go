@@ -92,10 +92,10 @@ type MongoEnvRoleExtractor struct {
 func (extractor MongoEnvRoleExtractor) HasRole(token *jwt.Token, role string) (bool, error) {
 	email := getEmail(token)
 	isSuperUserEmail := os.Getenv("VaccinePassportSUEmail") == email && role == superUserRoleName
-	hasRole, err := extractor.HasRole(token, role)
+	hasRole, err := extractor.roleExt.HasRole(token, role)
 	return isSuperUserEmail || hasRole, err
 }
 
 func (extractor MongoEnvRoleExtractor) Init() {
-	extractor.Init()
+	extractor.roleExt.Init()
 }
