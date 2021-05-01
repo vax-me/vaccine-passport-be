@@ -32,9 +32,9 @@ func (MongoRoleExtractor) Init() {
 
 func addIndices() error {
 	roleIndexModel := mongo.IndexModel{
-		Keys: bson.M{
-			"email": 1, // index in ascending order
-			"role":  1,
+		Keys: bson.D{
+			{"email", 1}, // index in ascending order
+			{"role", 1},
 		}, Options: nil,
 	}
 	_, err := mgm.Coll(&UserRole{}).Indexes().CreateOne(mgm.Ctx(), roleIndexModel)
