@@ -7,6 +7,8 @@ import (
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 type PassportRequest struct {
@@ -22,12 +24,24 @@ type PassportRequestInput struct {
 	PublicKey string `json:"public_key"`
 }
 
-func validatePassportRequestInput(data PassportRequestInput) error {
+const publicKeyRegex = "(-----BEGIN PUBLIC KEY-----(\\n|\\r|\\r\\n)([0-9a-zA-Z\\+\\/=]{64}(\\n|\\r|\\r\\n))*([0-9a-zA-Z\\+\\/=]{1,63}(\\n|\\r|\\r\\n))?-----END PUBLIC KEY-----)"
+
+func (data PassportRequestInput) validate() error {
 	if len(data.FirstName) == 0 {
 		return fmt.Errorf("first name must not be empty")
 	}
 	if len(data.LastName) == 0 {
 		return fmt.Errorf("last name must not be empty")
+	}
+	if strings.Contains(data.PublicKey, "BEGIN PRIVATE") {
+		return fmt.Errorf("do not send private keys - please discard this key and regenerate")
+	}
+	matchString, err := regexp.MatchString(publicKeyRegex, data.PublicKey)
+	if err != nil {
+		log.Errorf("Regex pattern broken - omittting check: %v", err)
+	}
+	if err == nil && !matchString {
+		return fmt.Errorf("malformed public key")
 	}
 	return nil
 }
@@ -50,7 +64,7 @@ func RequestPassport(w http.ResponseWriter, r *http.Request) {
 		common.HttpError(w, 400, "Malformed body")
 		return
 	}
-	if err := validatePassportRequestInput(payload); err != nil { // TODO: Validate cert
+	if err := payload.validate(); err != nil {
 		common.HttpErrorf(w, 400, "%v", err)
 		return
 	}

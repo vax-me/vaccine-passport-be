@@ -27,8 +27,6 @@ import (
 	"time"
 )
 
-// TODO: The methods in these files need doctor auth!
-
 type VaccineDose struct {
 	Type         string `json:"type" bson:"type"`
 	LotNo        string `json:"lot_no" bson:"lot_no"`

@@ -87,7 +87,6 @@ func invalidateDoctor(request InvalidationRequest) (error, error) {
 }
 
 func InvalidateDoctor(w http.ResponseWriter, r *http.Request) {
-	// TODO Require super-user
 	var req InvalidationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		common.HttpError(w, 400, "Malformed body")
