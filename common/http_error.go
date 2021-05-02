@@ -13,7 +13,7 @@ type err struct {
 }
 
 func HttpErrorf(w http.ResponseWriter, status int, format string, args ...interface{}) {
-	HttpError(w, status, fmt.Sprintf(format, args))
+	HttpError(w, status, fmt.Sprintf(format, args...))
 }
 
 func HttpError(w http.ResponseWriter, status int, message string) {
