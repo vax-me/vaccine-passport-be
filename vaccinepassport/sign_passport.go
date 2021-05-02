@@ -1,6 +1,8 @@
 package vaccinepassport
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/auth"
+	"adrianlehmann.io/vaccine-passport-signing/common"
 	"adrianlehmann.io/vaccine-passport-signing/doctors"
 	"crypto"
 	"crypto/aes"
@@ -177,23 +179,19 @@ func encrypt(signedData SignedVaccineData, key string) (*EncryptedSignedVaccineD
 func GetRequest(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if err := ValidateId(id); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Invalid id")
+		common.HttpError(w, 400, "Invalid id")
 		return
 	}
 	passportRequest := &PassportRequest{}
 	err := mgm.Coll(passportRequest).FindByID(id, passportRequest)
 	if err != nil {
-		log.Info(err)
-		w.WriteHeader(404)
-		_, _ = fmt.Fprint(w, "Could not find request with given id")
+		common.HttpError(w, 404, "Could not find request with given id")
 		return
 	}
 	w.WriteHeader(200)
 	if err := json.NewEncoder(w).Encode(passportRequest); err != nil {
-		w.WriteHeader(500)
-		log.Errorf("Failed to write response data")
-		_, _ = fmt.Fprint(w, "Server failed to generate response.")
+		log.Errorf("Failed to write response data: %v", err)
+		common.HttpError(w, 500, "Server failed to generate response.")
 		return
 	}
 }
@@ -202,21 +200,18 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	var payload VaccineDose
 	id := mux.Vars(r)["id"]
 	if err := ValidateId(id); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Invalid id")
+		common.HttpError(w, 400, "Invalid id")
 		return
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Failed to read message")
+		common.HttpError(w, 400, "Malformed body")
 		return
 	}
 	passportRequest := &PassportRequest{}
 	err := mgm.Coll(passportRequest).FindByID(id, passportRequest)
 	if err != nil {
 		log.Info(err)
-		w.WriteHeader(404)
-		_, _ = fmt.Fprint(w, "Could not find request with given id")
+		common.HttpError(w, 404, "Could not find request with given id")
 		return
 	}
 
@@ -227,19 +222,21 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	}
 	signed, err := sign(data)
 	if err != nil {
-		w.WriteHeader(500)
-		log.Error(err)
-		_, _ = fmt.Fprint(w, "Server failed to sign.")
+		common.HttpError(w, 500, "Server failed to sign")
+		log.Errorf("Server failed to sign: %v", err)
 		return
 	}
 	encrypted, err := encrypt(signed, passportRequest.PublicKey)
 	if err != nil {
-		w.WriteHeader(500)
-		log.Error(err)
-		_, _ = fmt.Fprint(w, "Failed to encrypt result")
+		log.Errorf("Server failed to encrypt: %v", err)
+		common.HttpError(w, 500, "Failed to encrypt result")
 		return
 	}
-	doctorId := "1" //TODO
+	doctorId, err := auth.GetRequestingEmail(r)
+	if err != nil {
+		common.HttpError(w, 400, "Could not identify doctor from token")
+		return
+	}
 	encrypted.SetID(passportRequest.GetID())
 	if err := mgm.Transaction(func(session mongo.Session, sc mongo.SessionContext) error {
 		if err := mgm.Coll(encrypted).Create(encrypted); err != nil {
@@ -253,9 +250,8 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 		}
 		return session.CommitTransaction(sc)
 	}); err != nil {
-		w.WriteHeader(500)
-		log.Error(err)
-		_, _ = fmt.Fprint(w, "Failed to store result")
+		log.Errorf("Failed to store passport: %v", err)
+		common.HttpError(w, 500, "Failed to store passport")
 		return
 	}
 	w.WriteHeader(204)

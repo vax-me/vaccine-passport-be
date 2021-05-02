@@ -1,6 +1,7 @@
 package vaccinepassport
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/common"
 	"encoding/json"
 	"fmt"
 	"github.com/kamva/mgm/v3"
@@ -46,20 +47,17 @@ type IdObj struct {
 func RequestPassport(w http.ResponseWriter, r *http.Request) {
 	var payload PassportRequestInput
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Failed to read message")
+		common.HttpError(w, 400, "Malformed body")
 		return
 	}
 	if err := validatePassportRequestInput(payload); err != nil { // TODO: Validate cert
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, err)
+		common.HttpErrorf(w, 400, "%v", err)
 		return
 	}
 	request := convertRequestInput(payload)
 	if err := mgm.Coll(request).Create(request); err != nil {
-		w.WriteHeader(500)
 		log.Error(err)
-		_, _ = fmt.Fprint(w, "Failed to persist")
+		common.HttpError(w, 500, "Failed to persist")
 		return
 	}
 	w.WriteHeader(200)
@@ -67,9 +65,8 @@ func RequestPassport(w http.ResponseWriter, r *http.Request) {
 		Id: request.ID.Hex(),
 	}
 	if err := json.NewEncoder(w).Encode(idObj); err != nil {
-		w.WriteHeader(500)
-		log.Errorf("Failed to write response data")
-		_, _ = fmt.Fprint(w, "Server failed to generate response.")
+		common.HttpError(w, 500, "Failed to write response data")
+		log.Errorf("Failed to write response data %v", err)
 		return
 	}
 

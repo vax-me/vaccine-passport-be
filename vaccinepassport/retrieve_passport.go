@@ -1,8 +1,8 @@
 package vaccinepassport
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/common"
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/kamva/mgm/v3"
 	log "github.com/sirupsen/logrus"
@@ -12,20 +12,18 @@ import (
 func RetrievePassport(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if err := ValidateId(id); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Invalid id")
+		common.HttpError(w, 400, "Invalid id")
 		return
 	}
 	encryptedSignedVaccineDataContainer := &EncryptedSignedVaccineDataContainer{}
 	if err := mgm.Coll(encryptedSignedVaccineDataContainer).FindByID(id, encryptedSignedVaccineDataContainer); err != nil {
-		w.WriteHeader(404)
+		common.HttpError(w, 404, "Not found")
 		return
 	}
 	w.WriteHeader(200)
 	if err := json.NewEncoder(w).Encode(encryptedSignedVaccineDataContainer); err != nil {
-		w.WriteHeader(500)
 		log.Errorf("Failed to write response data")
-		_, _ = fmt.Fprint(w, "Server failed to generate response.")
+		common.HttpError(w, 500, "Server failed to respond")
 		return
 	}
 }

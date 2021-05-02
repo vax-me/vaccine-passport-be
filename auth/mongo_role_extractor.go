@@ -1,8 +1,8 @@
 package auth
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/common"
 	"encoding/json"
-	"fmt"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/kamva/mgm/v3"
 	"github.com/kamva/mgm/v3/operator"
@@ -65,29 +65,25 @@ func addUserRole(role UserRole) error {
 func AddUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 	var role UserRole
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-		w.WriteHeader(400)
+		common.HttpError(w, 400, "Malformed body")
 		return
 	}
 
-	email, err := getRequestingEmail(r)
+	email, err := GetRequestingEmail(r)
 	if err != nil {
-		w.WriteHeader(500)
-		_, _ = fmt.Fprint(w, "Anonymous request")
+		common.HttpError(w, 401, "Anonymous request")
 		return
 	}
 	role.AssignedBy = email
 
 	if exists, err := roleExists(role); err != nil || exists {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "User already has role")
+		common.HttpError(w, 400, "User already has role")
 		return
 	}
 	if err := addUserRole(role); err != nil {
-		w.WriteHeader(500)
-		_, _ = fmt.Fprint(w, err)
+		common.HttpErrorf(w, 500, "Failed to add user: %v", err)
 		return
 	}
-
 	w.WriteHeader(204)
 }
 

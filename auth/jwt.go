@@ -74,7 +74,7 @@ func getTokenFromRequest(r *http.Request) (*jwt.Token, error) {
 	return jwt.Parse(tokenRaw, verifyParseToken)
 }
 
-func getRequestingEmail(r *http.Request) (string, error) {
+func GetRequestingEmail(r *http.Request) (string, error) {
 	token, err := getTokenFromRequest(r)
 	if err != nil {
 		return "", err

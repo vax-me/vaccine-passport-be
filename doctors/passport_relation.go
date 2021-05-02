@@ -1,6 +1,7 @@
 package doctors
 
 import (
+	"adrianlehmann.io/vaccine-passport-signing/common"
 	"encoding/json"
 	"fmt"
 	"github.com/kamva/mgm/v3"
@@ -89,18 +90,15 @@ func InvalidateDoctor(w http.ResponseWriter, r *http.Request) {
 	// TODO Require super-user
 	var req InvalidationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, "Failed to read message")
+		common.HttpError(w, 400, "Malformed body")
 		return
 	}
 	userErr, serverErr := invalidateDoctor(req)
 	if serverErr != nil {
-		w.WriteHeader(500)
-		_, _ = fmt.Fprint(w, serverErr)
+		common.HttpErrorf(w, 500, "Could not invalidate doctor: %v", serverErr)
 		return
 	} else if userErr != nil {
-		w.WriteHeader(400)
-		_, _ = fmt.Fprint(w, userErr)
+		common.HttpErrorf(w, 400, "Could not invalidate doctor: %v", userErr)
 		return
 	}
 	w.WriteHeader(204)
@@ -116,14 +114,14 @@ func GetInvalidPassports(w http.ResponseWriter, r *http.Request) {
 	result := make([]InvalidPassport, 0) // Ensure slice is non-nil for return
 	if err := mgm.Coll(&InvalidPassport{}).
 		SimpleFind(&result, bson.M{"unix_timestamp": bson.M{operator.Gte: from}}); err != nil {
-		w.WriteHeader(500)
+		common.HttpError(w, 500, "Failed to get invalidated keys")
+		log.Errorf("Failed to get invalidated keys: %v", err)
 		return
 	}
 	w.WriteHeader(200)
 	if err := json.NewEncoder(w).Encode(result); err != nil {
-		w.WriteHeader(500)
 		log.Errorf("Failed to write response data")
-		_, _ = fmt.Fprint(w, "Server failed to generate response.")
+		common.HttpError(w, 500, "Server failed to generate response.")
 		return
 	}
 }
