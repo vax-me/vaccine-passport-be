@@ -15,18 +15,13 @@ type PassportRequest struct {
 	mgm.DefaultModel `json:"-" bson:",inline"`
 	FirstName        string `json:"first_name" bson:"first_name"`
 	LastName         string `json:"last_name" bson:"last_name"`
+	BirthDate        Date   `json:"birth_date" bson:"birth_date"`
 	PublicKey        string `json:"public_key" bson:"public_key"`
-}
-
-type PassportRequestInput struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	PublicKey string `json:"public_key"`
 }
 
 const publicKeyRegex = "(-----BEGIN PUBLIC KEY-----(\\n|\\r|\\r\\n)([0-9a-zA-Z\\+\\/=]{64}(\\n|\\r|\\r\\n))*([0-9a-zA-Z\\+\\/=]{1,63}(\\n|\\r|\\r\\n))?-----END PUBLIC KEY-----)"
 
-func (data PassportRequestInput) validate() error {
+func (data PassportRequest) validate() error {
 	if len(data.FirstName) == 0 {
 		return fmt.Errorf("first name must not be empty")
 	}
@@ -46,30 +41,21 @@ func (data PassportRequestInput) validate() error {
 	return nil
 }
 
-func convertRequestInput(data PassportRequestInput) *PassportRequest {
-	return &PassportRequest{
-		FirstName: data.FirstName,
-		LastName:  data.LastName,
-		PublicKey: data.PublicKey,
-	}
-}
-
 type IdObj struct {
 	Id string `json:"id"`
 }
 
 func RequestPassport(w http.ResponseWriter, r *http.Request) {
-	var payload PassportRequestInput
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	var request PassportRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		common.HttpError(w, 400, "Malformed body")
 		return
 	}
-	if err := payload.validate(); err != nil {
+	if err := request.validate(); err != nil {
 		common.HttpErrorf(w, 400, "%v", err)
 		return
 	}
-	request := convertRequestInput(payload)
-	if err := mgm.Coll(request).Create(request); err != nil {
+	if err := mgm.Coll(&request).Create(&request); err != nil {
 		log.Error(err)
 		common.HttpError(w, 500, "Failed to persist")
 		return

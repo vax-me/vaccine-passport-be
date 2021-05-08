@@ -37,7 +37,14 @@ type VaccineDose struct {
 type VaccineData struct {
 	FirstName string      `json:"first_name" bson:"first_name"`
 	LastName  string      `json:"last_name" bson:"last_name"`
+	BirthDate Date        `json:"birth_date" bson:"birth_date"`
 	Dose      VaccineDose `json:"dose" bson:"dose"`
+}
+
+type Date struct {
+	Day   uint32 `json:"day" bson:"day"`
+	Month uint32 `json:"month" bson:"month"`
+	Year  uint32 `json:"year" bson:"year"`
 }
 
 type SignedVaccineData struct {
@@ -216,6 +223,7 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	data := VaccineData{
 		FirstName: passportRequest.FirstName,
 		LastName:  passportRequest.LastName,
+		BirthDate: passportRequest.BirthDate,
 		Dose:      payload,
 	}
 	signed, err := sign(data)
