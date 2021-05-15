@@ -1,11 +1,15 @@
 FROM golang:1.16-alpine
 
 WORKDIR /app
-COPY . .
+COPY go.mod .
+COPY go.sum .
+COPY main.go .
 
 ENV GO111MODULE=on
 
-RUN go get
+RUN go mod download
+
+COPY . .
 RUN go build
 
 ENV VaccinePassportPrivateKey=""
