@@ -35,8 +35,7 @@ type VaccineDose struct {
 }
 
 type VaccineData struct {
-	FirstName string      `json:"first_name" bson:"first_name"`
-	LastName  string      `json:"last_name" bson:"last_name"`
+	Name      string      `json:"name" bson:"name"`
 	BirthDate Date        `json:"birth_date" bson:"birth_date"`
 	Dose      VaccineDose `json:"dose" bson:"dose"`
 }
@@ -221,8 +220,7 @@ func SignVaccineData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := VaccineData{
-		FirstName: passportRequest.FirstName,
-		LastName:  passportRequest.LastName,
+		Name:      passportRequest.Name,
 		BirthDate: passportRequest.BirthDate,
 		Dose:      payload,
 	}

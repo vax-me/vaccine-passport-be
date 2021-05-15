@@ -13,8 +13,7 @@ import (
 
 type PassportRequest struct {
 	mgm.DefaultModel `json:"-" bson:",inline"`
-	FirstName        string `json:"first_name" bson:"first_name"`
-	LastName         string `json:"last_name" bson:"last_name"`
+	Name             string `json:"name" bson:"name"`
 	BirthDate        Date   `json:"birth_date" bson:"birth_date"`
 	PublicKey        string `json:"public_key" bson:"public_key"`
 }
@@ -22,10 +21,7 @@ type PassportRequest struct {
 const publicKeyRegex = "(-----BEGIN PUBLIC KEY-----(\\n|\\r|\\r\\n)([0-9a-zA-Z\\+\\/=]{64}(\\n|\\r|\\r\\n))*([0-9a-zA-Z\\+\\/=]{1,63}(\\n|\\r|\\r\\n))?-----END PUBLIC KEY-----)"
 
 func (data PassportRequest) validate() error {
-	if len(data.FirstName) == 0 {
-		return fmt.Errorf("first name must not be empty")
-	}
-	if len(data.LastName) == 0 {
+	if len(data.Name) == 0 {
 		return fmt.Errorf("last name must not be empty")
 	}
 	if strings.Contains(data.PublicKey, "BEGIN PRIVATE") {
