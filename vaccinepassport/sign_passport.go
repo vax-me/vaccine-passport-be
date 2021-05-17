@@ -47,9 +47,9 @@ type Date struct {
 }
 
 type SignedVaccineData struct {
-	EncodedData string    `json:"encoded_data_base_64"`
-	TimeStamp   time.Time `json:"time_stamp"`
-	Signature   string    `json:"signature_base_64"`
+	EncodedData string `json:"encoded_data_base_64"`
+	TimeStamp   int64  `json:"time_stamp"`
+	Signature   string `json:"signature_base_64"`
 }
 
 type EncryptedSignedVaccineDataContainer struct {
@@ -108,7 +108,7 @@ func sign(data VaccineData) (SignedVaccineData, error) {
 	}
 	signedData := SignedVaccineData{
 		EncodedData: base64.StdEncoding.EncodeToString(encodedData),
-		TimeStamp:   signTime,
+		TimeStamp:   signTime.Unix(),
 		Signature:   base64.StdEncoding.EncodeToString(bodyHash),
 	}
 	return signedData, nil
