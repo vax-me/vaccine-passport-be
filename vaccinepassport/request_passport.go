@@ -22,7 +22,7 @@ const publicKeyRegex = "(-----BEGIN PUBLIC KEY-----(\\n|\\r|\\r\\n)([0-9a-zA-Z\\
 
 func (data PassportRequest) validate() error {
 	if len(data.Name) == 0 {
-		return fmt.Errorf("last name must not be empty")
+		return fmt.Errorf("name must not be empty")
 	}
 	if strings.Contains(data.PublicKey, "BEGIN PRIVATE") {
 		return fmt.Errorf("do not send private keys - please discard this key and regenerate")
