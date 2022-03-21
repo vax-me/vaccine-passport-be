@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine
+FROM golang:1.18.0-alpine
 
 WORKDIR /app
 COPY go.mod .
