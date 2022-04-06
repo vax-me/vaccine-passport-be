@@ -9,6 +9,6 @@ require (
 	github.com/kamva/mgm/v3 v3.1.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/urfave/negroni v1.0.0
-	go.mongodb.org/mongo-driver v1.5.2
+	go.mongodb.org/mongo-driver v1.9.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 )
